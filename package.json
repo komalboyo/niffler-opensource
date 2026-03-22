@@ -1,0 +1,35 @@
+{
+  "name": "niffler",
+  "version": "0.1.0",
+  "description": "Personal AI knowledge graph for X/Twitter posts",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "xbrain": "./bin/xbrain"
+  },
+  "scripts": {
+    "start": "tsx src/web/server.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "cli": "tsx src/cli.ts"
+  },
+  "keywords": ["knowledge-graph", "twitter", "x", "mcp", "claude-code"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "3d-force-graph": "^1.79.1",
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "nanoid": "^5.1.7",
+    "openai": "^6.32.0",
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

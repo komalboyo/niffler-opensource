@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Niffler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <div class="header-left">
+        <a href="/" style="display:flex;align-items:center"><img src="/logo-niffler.png" alt="Niffler" class="header-logo"></a>
+        <a href="/" style="text-decoration:none"><h1>Niffler</h1></a>
+        <span id="stats-badge" class="badge"></span>
+        <span class="credit">by <a href="https://x.com/KomalBoyo" target="_blank">Komal Mathur</a></span>
+      </div>
+      <div class="header-right">
+        <div class="header-search search-section">
+          <input type="text" id="search-input" placeholder="Search posts…" class="input" aria-label="Search posts">
+          <div id="search-dropdown" class="search-dropdown hidden"></div>
+        </div>
+        <button id="btn-toggle-dim" class="btn btn-dim-toggle" title="Switch 2D/3D">3D</button>
+        <button id="btn-toggle-theme" class="btn btn-dim-toggle" title="Toggle light/dark mode">Light</button>
+        <button id="btn-add" class="btn btn-primary">+ Add</button>
+      </div>
+    </header>
+
+    <div id="category-strip"><span class="strip-label">Categories</span></div>
+
+    <div id="main">
+      <aside id="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Tags</div>
+          <div id="tag-list"></div>
+        </div>
+        <div class="sidebar-section">
+          <button id="btn-show-all" class="btn btn-small">Show All</button>
+        </div>
+        <div class="sidebar-footer">
+          <div class="footer-name">Made by Komal Mathur</div>
+          <div class="footer-links">
+            <a href="https://x.com/KomalBoyo" target="_blank">X</a>
+            <a href="https://komalboyo.github.io/" target="_blank">Web</a>
+            <a href="https://www.linkedin.com/in/komal-m-2a39a91ab/" target="_blank">LinkedIn</a>
+            <a href="https://github.com/komalboyo" target="_blank">GitHub</a>
+          </div>
+        </div>
+      </aside>
+
+      <div id="graph-container"></div>
+
+      <div id="detail-drawer" class="detail-drawer">
+        <button id="drawer-close" class="btn-close">&times;</button>
+        <div id="drawer-content"></div>
+      </div>
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display:none">
+      <div class="empty-card">
+        <div class="empty-icon">🧠</div>
+        <h2>Your brain is empty</h2>
+        <p>Paste a tweet URL to get started</p>
+        <input type="text" id="empty-url" placeholder="https://x.com/..." class="input">
+        <input type="text" id="empty-tags" placeholder="Tags (optional, comma separated)" class="input">
+        <button id="btn-empty-save" class="btn btn-primary">Save</button>
+        <div id="empty-status" class="status"></div>
+      </div>
+    </div>
+
+    <div id="add-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Add Post</h2>
+        <input type="text" id="add-url" placeholder="Paste tweet URL..." class="input">
+        <input type="text" id="add-tags" placeholder="Tags (comma separated)" class="input">
+        <textarea id="add-notes" placeholder="Notes (optional)" class="input" rows="2"></textarea>
+        <div class="modal-actions">
+          <button id="btn-add-cancel" class="btn">Cancel</button>
+          <button id="btn-add-save" class="btn btn-primary">Save</button>
+        </div>
+        <div id="add-status" class="status"></div>
+      </div>
+    </div>
+
+    <div id="floating-card" class="floating-card" style="display:none"></div>
+  </div>
+
+  <script src="https://unpkg.com/force-graph"></script>
+  <script src="https://unpkg.com/3d-force-graph"></script>
+  <script>
+    // ─── CONFIG ──────────────────────────────────────
+    const CATEGORY_COLORS = {
+      ai: "#f06292", tools: "#4fc3f7", "open-source": "#81c784",
+      design: "#ffb74d", engineering: "#9575cd", research: "#4dd0e1",
+      product: "#ff8a65", career: "#ce93d8", news: "#fff176", other: "#90a4ae",
+    };
+    const TAG_COLOR = "#d4883a";
+
+    let graph, currentTag = null, activeCategories = new Set();
+    let is3D = true;
+    let lastGraphData = null;
+    let currentTheme = localStorage.getItem("niffler-theme") || "dark";
+
+    function authFetch(url, opts = {}) {
+      return fetch(url, opts);
+    }
+
+
+    function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+    // ─── GRAPH ───────────────────────────────────────
+    function configureGraph(g) {
+      return g
+        .nodeVal(n => n.type === "tag" ? n.size * 2.5 : Math.max(2, n.size * 1.5))
+        .nodeColor(n => n.type === "tag" ? TAG_COLOR : (CATEGORY_COLORS[n.category] || CATEGORY_COLORS.other))
+        .nodeLabel(n => {
+          if (n.type === "post") return `<div style="font-size:12px"><b style="color:#d4883a">@${n.author}</b><br><span style="color:#aaa">${n.label.substring(0,60)}…</span></div>`;
+          return `<b style="color:#d4883a;font-size:14px">${n.label}</b>`;
+        })
+        .linkColor(() => currentTheme === "light" ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.2)")
+        .linkWidth(is3D ? 0.8 : 1.5)
+        .onNodeClick(n => {
+          if (n.type === "post") { showFloatingCard(n); zoomTo(n); }
+          else if (n.type === "tag") { filterByTag(n.label.replace("#","")); }
+        })
+        .onNodeDragEnd(n => { n.fx = n.x; n.fy = n.y; if (is3D) n.fz = n.z; })
+        .onBackgroundClick(() => { hideFloatingCard(); hideDrawer(); })
+        .d3AlphaDecay(0.02).d3VelocityDecay(0.3).warmupTicks(50).cooldownTicks(100);
+    }
+
+    function createGraph() {
+      const el = document.getElementById("graph-container");
+      // Clear existing
+      el.querySelectorAll("canvas, div.force-graph-container, div.scene-container").forEach(c => c.remove());
+
+      const graphBg = currentTheme === "light" ? "#f5f0eb" : "#0c0a08";
+      if (is3D) {
+        graph = ForceGraph3D()(el)
+          .backgroundColor(graphBg)
+          .showNavInfo(false)
+          .nodeOpacity(0.9)
+          .nodeResolution(16)
+          .linkOpacity(0.6);
+      } else {
+        graph = ForceGraph()(el)
+          .backgroundColor(graphBg)
+          .nodeRelSize(5)
+          .linkDirectionalParticles(0);
+      }
+      configureGraph(graph);
+
+      // Restore data if we have it
+      if (lastGraphData) {
+        graph.graphData(lastGraphData);
+      }
+    }
+
+    function initGraph() {
+      createGraph();
+    }
+
+    function toggleDimension() {
+      is3D = !is3D;
+      const btn = document.getElementById("btn-toggle-dim");
+      btn.textContent = is3D ? "3D" : "2D";
+      createGraph();
+    }
+
+    function toggleTheme() {
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      localStorage.setItem("niffler-theme", currentTheme);
+      applyTheme();
+      // Recreate graph to update bg and link colors
+      createGraph();
+    }
+
+    function applyTheme() {
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      const btn = document.getElementById("btn-toggle-theme");
+      if (btn) btn.textContent = currentTheme === "dark" ? "Light" : "Dark";
+    }
+
+    function zoomTo(node) {
+      if (is3D) {
+        const d = 100, r = 1 + d / Math.hypot(node.x, node.y, node.z);
+        graph.cameraPosition({ x: node.x*r, y: node.y*r, z: node.z*r }, node, 800);
+      } else {
+        graph.centerAt(node.x, node.y, 800);
+        graph.zoom(4, 800);
+      }
+    }
+
+    // ─── DATA LOADING ────────────────────────────────
+    async function loadGraph(tag) {
+      const url = tag ? `/api/graph?tag=${encodeURIComponent(tag)}` : "/api/graph";
+      const res = await fetch(url);
+      const data = await res.json();
+      lastGraphData = {
+        nodes: data.nodes.map(n => ({...n})),
+        links: data.edges.map(e => ({ source: e.source, target: e.target })),
+      };
+      graph.graphData(lastGraphData);
+      document.getElementById("empty-state").style.display = data.nodes.length === 0 ? "flex" : "none";
+    }
+
+    async function loadTags() {
+      const res = await fetch("/api/tags");
+      const data = await res.json();
+      const list = document.getElementById("tag-list");
+      list.innerHTML = data.tags.filter(t => t.count > 0).map(t =>
+        `<div class="tag-item${currentTag===t.name?" active":""}" data-tag="${t.name}">
+          <span>#${t.name}</span><span class="tag-count">${t.count}</span>
+        </div>`
+      ).join("");
+      list.querySelectorAll(".tag-item").forEach(el => {
+        el.onclick = () => { filterByTag(el.dataset.tag === currentTag ? null : el.dataset.tag); };
+      });
+    }
+
+    async function loadStats() {
+      const res = await fetch("/api/stats");
+      const s = await res.json();
+      document.getElementById("stats-badge").textContent = `${s.posts} posts`;
+    }
+
+    async function loadCategories() {
+      const res = await fetch("/api/posts");
+      const data = await res.json();
+      const counts = {};
+      data.posts.forEach(p => { const c = p.category||"other"; counts[c] = (counts[c]||0)+1; });
+      const strip = document.getElementById("category-strip");
+      strip.innerHTML = Object.entries(counts).sort((a,b) => b[1]-a[1]).map(([cat,cnt]) => {
+        const color = CATEGORY_COLORS[cat]||CATEGORY_COLORS.other;
+        const active = activeCategories.has(cat);
+        return `<div class="cat-pill${active?" active":""}" data-cat="${cat}" style="color:${color}">
+          <span class="cat-dot" style="background:${color}"></span>
+          <span>${cat}</span><span class="cat-count">${cnt}</span>
+        </div>`;
+      }).join("");
+      strip.querySelectorAll(".cat-pill").forEach(el => {
+        el.onclick = () => {
+          const c = el.dataset.cat;
+          activeCategories.has(c) ? activeCategories.delete(c) : activeCategories.add(c);
+          loadCategories();
+          applyFilters();
+        };
+      });
+    }
+
+    function filterByTag(tag) {
+      currentTag = tag;
+      loadGraph(tag);
+      loadTags();
+    }
+
+    function applyFilters() {
+      if (!graph) return;
+      if (activeCategories.size === 0) {
+        graph.nodeVisibility(() => true).linkVisibility(() => true);
+        return;
+      }
+
+      // Only show matching posts, hide tag hubs and non-matching posts
+      graph
+        .nodeVisibility(n => {
+          if (n.type === "tag") return false; // hide purple tag nodes when filtering
+          return activeCategories.has(n.category);
+        })
+        .linkVisibility(() => false); // hide all links since tag hubs are hidden
+    }
+
+    async function refreshAll() {
+      await Promise.all([loadGraph(), loadTags(), loadStats(), loadCategories()]);
+    }
+
+    // ─── FLOATING CARD ───────────────────────────────
+    function showFloatingCard(node) {
+      const card = document.getElementById("floating-card");
+      fetch(`/api/posts/${node.id}`).then(r => r.json()).then(({post}) => {
+        const color = CATEGORY_COLORS[post.category]||CATEGORY_COLORS.other;
+        card.innerHTML = `
+          <div class="fc-accent" style="background:${color}"></div>
+          <div class="fc-body">
+            <div class="fc-author">@${post.author}${post.author_name?` · ${post.author_name}`:""}</div>
+            <div class="fc-text">${escapeHtml(post.content.substring(0,140))}${post.content.length>140?"…":""}</div>
+            <div class="fc-tags">${post.tags.map(t=>`<span class="fc-tag">#${t}</span>`).join("")}</div>
+            <div class="fc-footer">
+              <span class="fc-category" style="color:${color}">${post.category||""}</span>
+              <span class="fc-expand">View full ▸</span>
+            </div>
+          </div>`;
+
+        // Position card near the clicked node using 3D→2D projection
+        const coords = graph.graph2ScreenCoords(node.x, node.y, node.z);
+        const containerRect = document.getElementById("graph-container").getBoundingClientRect();
+        let left = containerRect.left + coords.x + 20;
+        let top = containerRect.top + coords.y - 60;
+
+        // Keep card within viewport
+        const cardWidth = 320;
+        const cardHeight = 220;
+        if (left + cardWidth > window.innerWidth) left = left - cardWidth - 40;
+        if (top + cardHeight > window.innerHeight) top = window.innerHeight - cardHeight - 20;
+        if (top < 10) top = 10;
+        if (left < 10) left = 10;
+
+        card.style.left = left + "px";
+        card.style.top = top + "px";
+        card.style.right = "auto";
+        card.style.transform = "none";
+        card.style.display = "block";
+        card.onclick = (e) => { e.stopPropagation(); openDrawer(post); };
+      });
+    }
+
+    function hideFloatingCard() {
+      document.getElementById("floating-card").style.display = "none";
+    }
+
+    // ─── DRAWER ──────────────────────────────────────
+    function openDrawer(post) {
+      hideFloatingCard();
+      const drawer = document.getElementById("detail-drawer");
+      const content = document.getElementById("drawer-content");
+      const color = CATEGORY_COLORS[post.category]||CATEGORY_COLORS.other;
+
+      let threadHtml = "";
+      if (post.thread && post.thread.length > 0) {
+        threadHtml = `<div class="drawer-section">
+          <div class="drawer-section-title">Thread (${post.thread.length} more)</div>
+          <div class="drawer-thread">${post.thread.map((t,i) =>
+            `<div class="thread-item"><span class="thread-num">${i+1}.</span> ${escapeHtml(t)}</div>`
+          ).join("")}</div></div>`;
+      }
+
+      content.innerHTML = `
+        <div class="drawer-category-bar" style="background:${color}"></div>
+        <div class="drawer-header">
+          <div class="drawer-author">@${post.author}</div>
+          ${post.author_name?`<div class="drawer-author-name">${escapeHtml(post.author_name)}</div>`:""}
+          <div class="drawer-category-pill" style="background:${color}20;color:${color}">${post.category||"uncategorized"}</div>
+        </div>
+        <div class="drawer-text">${escapeHtml(post.content)}</div>
+        ${threadHtml}
+        <div class="drawer-section">
+          <div class="drawer-section-title">Tags</div>
+          <div class="drawer-tags-edit" id="tags-edit-${post.id}">
+            ${post.tags.map(t=>`<span class="drawer-tag" data-tag="${t}">#${t} <span class="tag-remove" onclick="removeTag('${post.id}','${t}')">&times;</span></span>`).join("")}
+            <input type="text" class="tag-input" id="tag-input-${post.id}" placeholder="+ add tag" onkeydown="handleTagKey(event,'${post.id}')">
+          </div>
+        </div>
+        ${post.notes?`<div class="drawer-section"><div class="drawer-section-title">Notes</div><div class="drawer-notes">${escapeHtml(post.notes)}</div></div>`:""}
+        <div class="drawer-meta">
+          ${post.tweet_date?`<span>${new Date(post.tweet_date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>`:""}
+          <span>Added ${new Date(post.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+        </div>
+        <a href="${post.url}" target="_blank" class="drawer-open-link">Open on X ↗</a>`;
+
+      drawer.classList.add("open");
+      document.getElementById("graph-container").classList.add("drawer-active");
+    }
+
+    function hideDrawer() {
+      document.getElementById("detail-drawer").classList.remove("open");
+      document.getElementById("graph-container").classList.remove("drawer-active");
+    }
+
+    // ─── TAG EDITING ────────────────────────────────
+    function handleTagKey(e, postId) {
+      if (e.key !== "Enter") return;
+      const input = e.target;
+      const tag = input.value.trim().toLowerCase().replace(/^#/, "");
+      if (!tag) return;
+      input.value = "";
+      addTagToPost(postId, tag);
+    }
+
+    async function addTagToPost(postId, newTag) {
+      const res = await fetch(`/api/posts/${postId}`);
+      const { post } = await res.json();
+      const tags = [...new Set([...post.tags, newTag])];
+      await fetch(`/api/posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      // Re-open drawer with updated post
+      const updated = await fetch(`/api/posts/${postId}`).then(r => r.json());
+      openDrawer(updated.post);
+      refreshAll();
+    }
+
+    async function removeTag(postId, tagToRemove) {
+      const res = await fetch(`/api/posts/${postId}`);
+      const { post } = await res.json();
+      const tags = post.tags.filter(t => t !== tagToRemove);
+      await fetch(`/api/posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      const updated = await fetch(`/api/posts/${postId}`).then(r => r.json());
+      openDrawer(updated.post);
+      refreshAll();
+    }
+
+    // ─── SEARCH ──────────────────────────────────────
+    function initSearch() {
+      const input = document.getElementById("search-input");
+      const dropdown = document.getElementById("search-dropdown");
+      let timer;
+      input.oninput = () => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const q = input.value.trim();
+          if (q.length < 2) { dropdown.classList.add("hidden"); loadGraph(currentTag); graph.nodeVisibility(()=>true).linkVisibility(()=>true); return; }
+          const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          const ids = new Set(data.posts.map(p=>p.id));
+          dropdown.innerHTML = data.posts.length === 0
+            ? `<div class="search-no-results">No results for "${escapeHtml(q)}"</div>`
+            : data.posts.map(p => `<div class="search-result" data-id="${p.id}">
+                <div class="sr-author">@${p.author}</div>
+                <div class="sr-text">${p.content.substring(0,80)}…</div>
+              </div>`).join("");
+          dropdown.classList.remove("hidden");
+          dropdown.querySelectorAll(".search-result").forEach(el => {
+            el.onclick = () => {
+              // Highlight active result, keep dropdown open
+              dropdown.querySelectorAll(".search-result").forEach(r => r.classList.remove("active"));
+              el.classList.add("active");
+              focusNode(el.dataset.id);
+            };
+          });
+          graph.nodeVisibility(n => ids.size===0 || ids.has(n.id) || n.type==="tag")
+               .linkVisibility(link => {
+                 const s = typeof link.source==="object" ? link.source.id : link.source;
+                 const t = typeof link.target==="object" ? link.target.id : link.target;
+                 return ids.has(s) || ids.has(t);
+               });
+        }, 250);
+      };
+      input.onkeydown = e => {
+        if (e.key==="Escape") { input.value=""; dropdown.classList.add("hidden"); loadGraph(currentTag); graph.nodeVisibility(()=>true).linkVisibility(()=>true); }
+      };
+    }
+
+    function focusNode(id) {
+      const node = graph.graphData().nodes.find(n => n.id === id);
+      if (node) { zoomTo(node); showFloatingCard(node); }
+    }
+
+    // ─── ADD MODAL ───────────────────────────────────
+    function initAddModal() {
+      const modal = document.getElementById("add-modal");
+      document.getElementById("btn-add").onclick = () => { modal.classList.remove("hidden"); document.getElementById("add-url").focus(); };
+      document.getElementById("btn-add-cancel").onclick = () => { modal.classList.add("hidden"); clearForm(); };
+      modal.onclick = e => { if(e.target===modal){modal.classList.add("hidden");clearForm();} };
+      document.getElementById("btn-add-save").onclick = () => doSave(
+        document.getElementById("add-url"),
+        document.getElementById("add-tags"),
+        document.getElementById("add-notes"),
+        document.getElementById("add-status"),
+        document.getElementById("btn-add-save"),
+        () => { modal.classList.add("hidden"); clearForm(); refreshAll(); }
+      );
+      // Empty state save
+      const btnE = document.getElementById("btn-empty-save");
+      if (btnE) btnE.onclick = () => doSave(
+        document.getElementById("empty-url"),
+        document.getElementById("empty-tags"),
+        null,
+        document.getElementById("empty-status"),
+        btnE,
+        () => refreshAll()
+      );
+    }
+
+    async function doSave(urlEl, tagsEl, notesEl, statusEl, btn, onDone) {
+      const url = urlEl.value.trim();
+      if (!url) { statusEl.textContent="URL is required"; statusEl.className="status error"; return; }
+      btn.disabled = true;
+      statusEl.textContent = "Scraping and categorizing…";
+      statusEl.className = "status";
+      try {
+        const tags = tagsEl.value.trim() ? tagsEl.value.trim().split(",").map(t=>t.trim().replace(/^#/,"")) : undefined;
+        const notes = notesEl ? notesEl.value.trim()||undefined : undefined;
+        const res = await authFetch("/api/posts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,tags,notes})});
+        const data = await res.json();
+        if(data.error) throw new Error(data.error);
+        statusEl.textContent = data.duplicate ? "Already saved!" : `Saved! @${data.post.author} — ${data.post.tags.map(t=>"#"+t).join(" ")}`;
+        statusEl.className = data.duplicate ? "status" : "status success";
+        setTimeout(onDone, 1200);
+      } catch(e) { statusEl.textContent = `Error: ${e.message}`; statusEl.className = "status error"; }
+      finally { btn.disabled = false; }
+    }
+
+    function clearForm() {
+      ["add-url","add-tags","add-notes"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+      const s = document.getElementById("add-status"); s.textContent=""; s.className="status";
+    }
+
+    // ─── BOOT ────────────────────────────────────────
+    document.addEventListener("DOMContentLoaded", () => {
+      initGraph();
+      initSearch();
+      initAddModal();
+      document.getElementById("btn-show-all").onclick = () => {
+        currentTag = null; activeCategories.clear();
+        document.getElementById("search-input").value = "";
+        document.getElementById("search-dropdown").classList.add("hidden");
+        refreshAll();
+        graph.nodeVisibility(()=>true).linkVisibility(()=>true);
+      };
+      document.getElementById("drawer-close").onclick = () => { hideDrawer(); hideFloatingCard(); };
+      document.getElementById("btn-toggle-dim").onclick = toggleDimension;
+      document.getElementById("btn-toggle-theme").onclick = toggleTheme;
+      applyTheme();
+      refreshAll();
+
+      // Track page view
+      fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/app', referrer: document.referrer }) }).catch(() => {});
+    });
+
+    document.onkeydown = e => {
+      if (e.key==="Escape") { hideDrawer(); hideFloatingCard(); document.getElementById("add-modal").classList.add("hidden"); document.getElementById("search-dropdown").classList.add("hidden"); }
+      if ((e.metaKey||e.ctrlKey) && e.key==="k") { e.preventDefault(); document.getElementById("search-input").focus(); }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+/* x-brain save button — sits in the tweet action bar */
+.xbrain-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  height: 32px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(113, 118, 123);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
+.xbrain-save-btn .xbrain-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.xbrain-save-btn .xbrain-label {
+  font-size: 13px;
+}
+
+/* ─── Default hover ─── */
+.xbrain-save-btn:hover {
+  color: #d4883a;
+  background: rgba(212, 136, 58, 0.1);
+}
+
+/* ─── Saving state: pulsing ─── */
+.xbrain-save-btn.xbrain-saving {
+  color: #d4883a;
+  pointer-events: none;
+}
+
+/* ─── Saved state: celebratory ─── */
+.xbrain-save-btn.xbrain-saved {
+  color: #e8b04a;
+  background: rgba(232, 176, 74, 0.08);
+}
+
+.xbrain-save-btn.xbrain-saved .xbrain-icon svg {
+  animation: xbrain-pop 0.3s ease-out;
+}
+
+/* ─── Already in brain ─── */
+.xbrain-save-btn.xbrain-duplicate {
+  color: #d4883a;
+  opacity: 0.7;
+}
+
+.xbrain-save-btn.xbrain-duplicate:hover {
+  opacity: 1;
+  background: rgba(212, 136, 58, 0.08);
+}
+
+/* ─── Error state ─── */
+.xbrain-save-btn.xbrain-error {
+  color: #f06292;
+}
+
+/* ─── Tag Popover ─── */
+.niffler-tag-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  background: #1a1714;
+  border: 1px solid #2a2420;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.niffler-tag-input {
+  background: #0c0a08;
+  border: 1px solid #2a2420;
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: #e8e0d8;
+  font-size: 13px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.niffler-tag-input:focus {
+  border-color: #d4883a;
+}
+
+.niffler-tag-input::placeholder {
+  color: #5e5448;
+}
+
+.niffler-tag-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.niffler-save-now,
+.niffler-skip {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: all 0.15s;
+}
+
+.niffler-save-now {
+  background: linear-gradient(135deg, #d4883a, #c06a2a);
+  color: white;
+}
+
+.niffler-save-now:hover {
+  filter: brightness(1.1);
+}
+
+.niffler-skip {
+  background: #1a1714;
+  color: #9a8e82;
+  border: 1px solid #2a2420;
+}
+
+.niffler-skip:hover {
+  background: #241e1a;
+  color: #e8e0d8;
+}
+
+/* ─── Animations ─── */
+@keyframes xbrain-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
