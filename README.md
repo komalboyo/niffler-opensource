@@ -30,6 +30,20 @@ That's it. No accounts, no API keys, no cloud. Your data stays on your machine i
 
 ---
 
+## Your X Account Stays Safe
+
+Some tools scrape Twitter by calling internal GraphQL APIs with your session cookies — that gets accounts rate-limited or banned. Niffler doesn't do that.
+
+| Method | What it does | API calls to X | Ban risk |
+|--------|-------------|----------------|----------|
+| **Chrome extension** | Reads the tweet DOM on the page you're already viewing | Zero | None |
+| **Web UI / MCP** | Uses Twitter's official [oEmbed endpoint](https://developer.twitter.com/en/docs/twitter-for-websites/oembed-api) | One lightweight request per tweet | None — it's a public API |
+| **Playwright** (optional) | Opens a browser and reads the page like you would | Same as visiting x.com | Minimal — same as normal browsing |
+
+No internal APIs. No GraphQL endpoints. No bulk search queries. Your cookies never leave your browser — the Chrome extension reads the page client-side and sends only the tweet content to your local Niffler instance.
+
+---
+
 ## How It Works
 
 1. **Save a tweet** — paste a URL, click the extension button, or use the CLI
