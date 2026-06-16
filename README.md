@@ -15,6 +15,31 @@
 
 ---
 
+## Status
+
+**Early but functional — actively maintained.** Niffler is a young project (`v0.1.0`) under active solo development.
+
+- **Version:** 0.1.0
+- **Last activity:** March 2026
+- **Maintained:** Yes — by [@KomalBoyo](https://x.com/KomalBoyo). Issues and PRs welcome.
+- **Stability:** Pre-1.0. APIs, schema, and tool names may change between versions.
+
+**What works today:**
+
+- ✅ **Web app** — paste a tweet URL, browse the 3D knowledge graph, search and filter by tag
+- ✅ **Chrome extension** — a Niffler save button on every tweet (load unpacked)
+- ✅ **CLI** — `add`, `search`, `list`, `tags`, `stats`
+- ✅ **MCP server** — 8 tools for Claude Code, auto-discovered from `.mcp.json`
+- ✅ **AI auto-categorization** — optional, via any OpenAI-compatible LLM (works without one; tag manually)
+- ✅ **Local-first storage** — single SQLite file with FTS5 full-text search; no accounts, no cloud
+
+**Good to know:**
+
+- The `LICENSE` badge and link point to a MIT license; the full `LICENSE` file may not yet be committed to the repo. The intended license is MIT (see [License](#license)).
+- Playwright scraping is optional — most workflows (extension, web UI, MCP) use the public oEmbed endpoint instead.
+
+---
+
 ## Quick Start
 
 ```bash
